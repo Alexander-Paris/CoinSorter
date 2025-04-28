@@ -1,0 +1,62 @@
+import cv2
+import base64
+import time
+from openai import OpenAI
+
+# Initialize OpenAI client with your API key
+client = OpenAI(api_key="YOUR-OPENAI-API-KEY-HERE")  # <-- put your API key here
+
+# Function to capture image from USB webcam
+def capture_image(filename="coin.jpg"):
+    cap = cv2.VideoCapture(0)  # Try 0, or 1 if needed
+    if not cap.isOpened():
+        raise Exception("Could not open webcam")
+    
+    # Let camera warm up
+    time.sleep(2)
+    
+    ret, frame = cap.read()
+    if not ret:
+        raise Exception("Failed to capture image from webcam")
+
+    # Save the image
+    cv2.imwrite(filename, frame)
+    cap.release()
+
+# Function to encode image as base64
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+# Main function
+def analyze_coin():
+    # Step 1: Capture photo
+    image_path = "coin.jpg"
+    capture_image(image_path)
+    print(f"Image captured and saved to {image_path}")
+
+    # Step 2: Encode photo
+    base64_image = encode_image(image_path)
+
+    # Step 3: Send to OpenAI for analysis
+    response = client.chat.completions.create(
+        model="gpt-4-vision-preview",  # Use a vision model
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Tell me the mint year and denomination of the coin in this image."},
+                    {"type": "image", "image": {"base64": base64_image}},
+                ],
+            }
+        ],
+        max_tokens=300,
+    )
+
+    # Step 4: Print the result
+    result = response.choices[0].message.content
+    print("\nAnalysis Result:")
+    print(result)
+
+if __name__ == "__main__":
+    analyze_coin()
