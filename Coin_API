@@ -4,11 +4,11 @@ import time
 from openai import OpenAI
 
 # Initialize OpenAI client with your API key
-client = OpenAI(api_key="YOUR-OPENAI-API-KEY-HERE")  # <-- put your API key here
+client = OpenAI(api_key="YOUR-OPENAI-API-KEY-HERE")  # <-- put your real API key here inside the quotes
 
 # Function to capture image from USB webcam
 def capture_image(filename="coin.jpg"):
-    cap = cv2.VideoCapture(0)  # Try 0, or 1 if needed
+    cap = cv2.VideoCapture(0)  # If your webcam is not at 0, try 1
     if not cap.isOpened():
         raise Exception("Could not open webcam")
     
@@ -19,7 +19,7 @@ def capture_image(filename="coin.jpg"):
     if not ret:
         raise Exception("Failed to capture image from webcam")
 
-    # Save the image
+    # Save the captured image
     cv2.imwrite(filename, frame)
     cap.release()
 
@@ -28,7 +28,7 @@ def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-# Main function
+# Main function to analyze the coin
 def analyze_coin():
     # Step 1: Capture photo
     image_path = "coin.jpg"
@@ -40,13 +40,16 @@ def analyze_coin():
 
     # Step 3: Send to OpenAI for analysis
     response = client.chat.completions.create(
-        model="gpt-4-vision-preview",  # Use a vision model
+        model="gpt-4-vision-preview",  # Or "gpt-4o" if you have it
         messages=[
             {
                 "role": "user",
                 "content": [
                     {"type": "text", "text": "Tell me the mint year and denomination of the coin in this image."},
-                    {"type": "image", "image": {"base64": base64_image}},
+                    {
+                        "type": "image_url",
+                        "image_url": f"data:image/jpeg;base64,{base64_image}",
+                    },
                 ],
             }
         ],
@@ -55,7 +58,7 @@ def analyze_coin():
 
     # Step 4: Print the result
     result = response.choices[0].message.content
-    print("\nAnalysis Result:")
+    print("\n--- Analysis Result ---")
     print(result)
 
 if __name__ == "__main__":
