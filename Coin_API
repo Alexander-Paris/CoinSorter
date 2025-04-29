@@ -1,41 +1,15 @@
 import cv2
 import time
-import numpy as np
 import google.generativeai as genai
 
-# Configure Gemini API Key
-genai.configure(api_key="YOUR-GEMINI-API-KEY-HERE")  # <-- Replace with your Gemini API key
+# Configure Gemini API key
+genai.configure(api_key="YOUR-GEMINI-API-KEY-HERE")  # <-- Replace with your actual key
 
-# Use Gemini Flash 1.5
+# Use Gemini Flash 1.5 model
 model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
-# Preprocess image (sharpening + contrast enhancement)
-def preprocess_color_enhance(image):
-    # Blur to reduce noise
-    blurred = cv2.GaussianBlur(image, (3, 3), 0)
-
-    # Sharpening kernel
-    kernel = np.array([
-        [0, -1, 0],
-        [-1, 5, -1],
-        [0, -1, 0]
-    ])
-    sharpened = cv2.filter2D(blurred, -1, kernel)
-
-    # Enhance contrast (CLAHE on L-channel)
-    lab = cv2.cvtColor(sharpened, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    cl = clahe.apply(l)
-
-    merged = cv2.merge((cl, a, b))
-    final = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
-
-    return final
-
-# Capture and preprocess image
-def capture_and_save_image(filename="coin.jpg"):
+# Capture image from webcam
+def capture_image(filename="coin.jpg"):
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
@@ -51,11 +25,9 @@ def capture_and_save_image(filename="coin.jpg"):
     cap.release()
 
     if not ret:
-        raise Exception("Failed to capture image")
+        raise Exception("Failed to capture image from webcam")
 
-    # Enhance and save
-    enhanced = preprocess_color_enhance(frame)
-    cv2.imwrite(filename, enhanced)
+    cv2.imwrite(filename, frame)
     print(f"Image saved to {filename}")
     return filename
 
@@ -64,10 +36,9 @@ def load_image_bytes(path):
     with open(path, "rb") as f:
         return f.read()
 
-# Analyze coin using Gemini
-def analyze_coin_with_gemini():
-    image_path = capture_and_save_image()
-
+# Analyze coin image
+def analyze_coin():
+    image_path = capture_image()
     image_data = load_image_bytes(image_path)
 
     prompt = (
@@ -92,4 +63,4 @@ def analyze_coin_with_gemini():
     print(response.text)
 
 if __name__ == "__main__":
-    analyze_coin_with_gemini()
+    analyze_coin()
