@@ -2,30 +2,66 @@ import cv2
 import base64
 import time
 from openai import OpenAI
+import numpy as np
 
-# Initialize OpenAI client with your API key
+# Initialize OpenAI client
 client = OpenAI(api_key="YOUR-OPENAI-API-KEY-HERE")  # <-- put your API key here
 
-# Function to capture image from USB webcam
+# Capture image from webcam at high resolution
 def capture_image(filename="coin.jpg"):
-    cap = cv2.VideoCapture(0)  # If webcam not at 0, try 1
+    cap = cv2.VideoCapture(0)  # Use 0 or 1 depending on your webcam
+
     if not cap.isOpened():
         raise Exception("Could not open webcam")
-    
+
+    # Set high resolution (Full HD 1920x1080)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
     time.sleep(2)  # Let the camera warm up
+
     ret, frame = cap.read()
     if not ret:
         raise Exception("Failed to capture image from webcam")
 
-    cv2.imwrite(filename, frame)
+    # Apply color enhancement: sharpening and contrast boost
+    enhanced_frame = preprocess_color_enhance(frame)
+
+    # Save the processed image
+    cv2.imwrite(filename, enhanced_frame)
     cap.release()
 
-# Function to encode image as base64
+# Preprocess image for color enhancement: sharpening + contrast boost
+def preprocess_color_enhance(image):
+    # Step 1: Apply slight Gaussian Blur to remove noise
+    blurred = cv2.GaussianBlur(image, (3, 3), 0)
+
+    # Step 2: Sharpen the image (without losing color)
+    kernel = np.array([
+        [0, -1, 0],
+        [-1, 5, -1],
+        [0, -1, 0]
+    ])
+    sharpened = cv2.filter2D(blurred, -1, kernel)
+
+    # Step 3: Increase contrast (for BGR)
+    lab = cv2.cvtColor(sharpened, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+
+    merged = cv2.merge((cl, a, b))
+    final = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+
+    return final
+
+# Encode image to base64
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
-# Main function
+# Analyze the captured coin image
 def analyze_coin():
     image_path = "coin.jpg"
     capture_image(image_path)
@@ -33,9 +69,9 @@ def analyze_coin():
 
     base64_image = encode_image(image_path)
 
-    # Create the chat completion request
+    # Request OpenAI with expert coin appraiser prompt
     response = client.chat.completions.create(
-        model="gpt-4-vision-preview",  # or gpt-4o if available
+        model="gpt-4o",  # or "gpt-4-vision-preview" if you want
         messages=[
             {
                 "role": "user",
@@ -44,13 +80,11 @@ def analyze_coin():
                         "type": "text",
                         "text": (
                             "You are an expert coin appraiser and professional numismatist. "
-                            "You specialize in identifying coins by mint year, denomination, origin, and condition. "
+                            "You specialize in identifying coins by mint year, denomination "
                             "Analyze the following image of a coin and tell me:\n"
                             "- Likely year\n"
                             "- Mint mark (if visible)\n"
-                            "- Country of origin\n"
                             "- Denomination (e.g., cent, quarter, etc.)\n"
-                            "- Estimated coin grade (Poor, Fine, VF, XF, MS-65, etc.)\n"
                             "Be very detailed and specific. Only guess if absolutely necessary. "
                             "Explain anything unclear about the coin or image."
                         )
@@ -64,11 +98,11 @@ def analyze_coin():
                 ]
             }
         ],
-        max_tokens=300,
+        max_tokens=500,
     )
 
     result = response.choices[0].message.content
-    print("\n--- Analysis Result ---")
+    print("\n--- Coin Analysis Result ---")
     print(result)
 
 if __name__ == "__main__":
