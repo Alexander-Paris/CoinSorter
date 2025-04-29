@@ -1,31 +1,43 @@
 import cv2
 import time
 
-def capture_image(filename="coin.jpg"):
+def test_camera():
     cap = cv2.VideoCapture(0)
 
     if not cap.isOpened():
         raise Exception("Could not open webcam")
 
-    # FORCE high resolution (e.g., Full HD 1920x1080)
+    # Force high resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Some cameras need a small warm-up time
+    # Let the camera adjust
     time.sleep(2)
 
-    # Optional: force good exposure / focus / brightness settings
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # Try disabling auto exposure if bad
-    cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)   # Mid brightness (adjust if needed)
-    cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
-    cap.set(cv2.CAP_PROP_SATURATION, 0.5)
+    print("Press SPACE to capture an image. Press ESC to exit.")
 
-    ret, frame = cap.read()
-    if not ret:
-        raise Exception("Failed to capture image from webcam")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame")
+            break
 
-    # Save image at max quality
-    cv2.imwrite(filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+        # Show live video
+        cv2.imshow("Camera Test - Press SPACE to Capture", frame)
+
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == 27:  # ESC key
+            print("Exiting...")
+            break
+        elif key == 32:  # SPACE key
+            filename = f"coin_capture_{int(time.time())}.jpg"
+            cv2.imwrite(filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+            print(f"Image saved: {filename}")
+
     cap.release()
+    cv2.destroyAllWindows()
 
-    print(f"Captured high-quality image: {filename}")
+if __name__ == "__main__":
+    test_camera()
+
