@@ -42,7 +42,18 @@ def analyze_coin():
                 "content": [
                     {
                         "type": "text",
-                        "text": "Tell me the mint year and denomination of the coin in this image."
+                        "text": (
+                            "You are an expert coin appraiser and professional numismatist. "
+                            "You specialize in identifying coins by mint year, denomination, origin, and condition. "
+                            "Analyze the following image of a coin and tell me:\n"
+                            "- Likely year\n"
+                            "- Mint mark (if visible)\n"
+                            "- Country of origin\n"
+                            "- Denomination (e.g., cent, quarter, etc.)\n"
+                            "- Estimated coin grade (Poor, Fine, VF, XF, MS-65, etc.)\n"
+                            "Be very detailed and specific. Only guess if absolutely necessary. "
+                            "Explain anything unclear about the coin or image."
+                        )
                     },
                     {
                         "type": "image_url",
