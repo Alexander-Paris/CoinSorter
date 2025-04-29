@@ -1,10 +1,30 @@
 import cv2
+import numpy as np
 import time
 
-def preprocess_grayscale(image):
-    # Step 1: Convert to Grayscale only
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    return gray
+def preprocess_color_enhance(image):
+    # Step 1: Apply slight Gaussian Blur to remove noise
+    blurred = cv2.GaussianBlur(image, (3, 3), 0)
+
+    # Step 2: Sharpen the image (without losing color)
+    kernel = np.array([
+        [0, -1, 0],
+        [-1, 5, -1],
+        [0, -1, 0]
+    ])
+    sharpened = cv2.filter2D(blurred, -1, kernel)
+
+    # Step 3: Increase contrast (for BGR)
+    lab = cv2.cvtColor(sharpened, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    cl = clahe.apply(l)
+
+    merged = cv2.merge((cl, a, b))
+    final = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+
+    return final
 
 def test_camera():
     cap = cv2.VideoCapture(0)
@@ -26,13 +46,11 @@ def test_camera():
             print("Failed to grab frame")
             break
 
-        # Try to fix color format
         try:
             frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_YUYV)
         except:
             pass
 
-        # Show live camera feed
         cv2.imshow("Live View - Press SPACE to Capture", frame)
 
         key = cv2.waitKey(1) & 0xFF
@@ -41,19 +59,18 @@ def test_camera():
             print("Exiting...")
             break
         elif key == 32:  # SPACE
-            # Preprocess: Grayscale only
-            processed = preprocess_grayscale(frame)
+            # Preprocess: Color enhance
+            processed = preprocess_color_enhance(frame)
 
-            # Save raw and processed images
             timestamp = int(time.time())
             raw_filename = f"coin_raw_{timestamp}.jpg"
-            processed_filename = f"coin_grayscale_{timestamp}.jpg"
+            processed_filename = f"coin_color_enhanced_{timestamp}.jpg"
 
             cv2.imwrite(raw_filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
             cv2.imwrite(processed_filename, processed)
 
             print(f"Saved raw image: {raw_filename}")
-            print(f"Saved grayscale processed image: {processed_filename}")
+            print(f"Saved color enhanced image: {processed_filename}")
 
     cap.release()
     cv2.destroyAllWindows()
