@@ -1,5 +1,38 @@
 import cv2
+import numpy as np
 import time
+
+def preprocess_image(image):
+    # 1. Convert to Grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # 2. Apply Gaussian Blur to remove noise
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+
+    # 3. Sharpen the image
+    kernel = np.array([
+        [0, -1, 0],
+        [-1, 5, -1],
+        [0, -1, 0]
+    ])
+    sharpened = cv2.filter2D(blurred, -1, kernel)
+
+    # 4. Boost contrast (CLAHE)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    contrast = clahe.apply(sharpened)
+
+    # 5. Adaptive Thresholding
+    thresholded = cv2.adaptiveThreshold(
+        contrast, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        11, 2
+    )
+
+    # 6. Optional: Resize image bigger (helps with small text)
+    resized = cv2.resize(thresholded, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
+
+    return resized
 
 def test_camera():
     cap = cv2.VideoCapture(0)
@@ -7,22 +40,14 @@ def test_camera():
     if not cap.isOpened():
         raise Exception("Could not open webcam")
 
-    # Force high resolution (Full HD)
+    # Force high resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Adjust camera settings
-    time.sleep(2)  # Warm-up time
-    cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)    # 0.0 to 1.0 (mid-level brightness)
-    cap.set(cv2.CAP_PROP_CONTRAST, 0.5)      # 0.0 to 1.0 (mid-level contrast)
-    cap.set(cv2.CAP_PROP_SATURATION, 0.5)    # 0.0 to 1.0 (mid-level saturation)
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)   # 1 = enable, 0 = disable (some cameras only)
+    # Warm-up time
+    time.sleep(2)
 
-    # Optional: try setting focus manually if camera supports it
-    # cap.set(cv2.CAP_PROP_FOCUS, 0)          # 0 = infinity, 255 = closest
-    # Note: most cheap webcams don't allow manual focus by software.
-
-    print("Press SPACE to capture an image. Press ESC to exit.")
+    print("Press SPACE to capture and preprocess an image. Press ESC to exit.")
 
     while True:
         ret, frame = cap.read()
@@ -30,8 +55,14 @@ def test_camera():
             print("Failed to grab frame")
             break
 
-        # Show live video
-        cv2.imshow("Camera Test - Press SPACE to Capture", frame)
+        # Try to fix color format
+        try:
+            frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR_YUYV)
+        except:
+            pass
+
+        # Show live video (raw, not processed)
+        cv2.imshow("Camera Live View - Press SPACE to Capture", frame)
 
         key = cv2.waitKey(1) & 0xFF
 
@@ -39,9 +70,19 @@ def test_camera():
             print("Exiting...")
             break
         elif key == 32:  # SPACE key
-            filename = f"coin_capture_{int(time.time())}.jpg"
-            cv2.imwrite(filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-            print(f"Image saved: {filename}")
+            # Preprocess the current frame
+            processed_frame = preprocess_image(frame)
+
+            # Save both raw and processed images
+            timestamp = int(time.time())
+            raw_filename = f"coin_raw_{timestamp}.jpg"
+            processed_filename = f"coin_processed_{timestamp}.jpg"
+
+            cv2.imwrite(raw_filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+            cv2.imwrite(processed_filename, processed_frame)
+
+            print(f"Saved raw image: {raw_filename}")
+            print(f"Saved processed image: {processed_filename}")
 
     cap.release()
     cv2.destroyAllWindows()
