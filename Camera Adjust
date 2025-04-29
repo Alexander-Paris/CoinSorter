@@ -1,0 +1,31 @@
+import cv2
+import time
+
+def capture_image(filename="coin.jpg"):
+    cap = cv2.VideoCapture(0)
+
+    if not cap.isOpened():
+        raise Exception("Could not open webcam")
+
+    # FORCE high resolution (e.g., Full HD 1920x1080)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+    # Some cameras need a small warm-up time
+    time.sleep(2)
+
+    # Optional: force good exposure / focus / brightness settings
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)  # Try disabling auto exposure if bad
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)   # Mid brightness (adjust if needed)
+    cap.set(cv2.CAP_PROP_CONTRAST, 0.5)
+    cap.set(cv2.CAP_PROP_SATURATION, 0.5)
+
+    ret, frame = cap.read()
+    if not ret:
+        raise Exception("Failed to capture image from webcam")
+
+    # Save image at max quality
+    cv2.imwrite(filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+    cap.release()
+
+    print(f"Captured high-quality image: {filename}")
