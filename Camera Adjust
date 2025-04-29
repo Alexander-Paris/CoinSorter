@@ -7,12 +7,20 @@ def test_camera():
     if not cap.isOpened():
         raise Exception("Could not open webcam")
 
-    # Force high resolution
+    # Force high resolution (Full HD)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Let the camera adjust
-    time.sleep(2)
+    # Adjust camera settings
+    time.sleep(2)  # Warm-up time
+    cap.set(cv2.CAP_PROP_BRIGHTNESS, 0.5)    # 0.0 to 1.0 (mid-level brightness)
+    cap.set(cv2.CAP_PROP_CONTRAST, 0.5)      # 0.0 to 1.0 (mid-level contrast)
+    cap.set(cv2.CAP_PROP_SATURATION, 0.5)    # 0.0 to 1.0 (mid-level saturation)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)   # 1 = enable, 0 = disable (some cameras only)
+
+    # Optional: try setting focus manually if camera supports it
+    # cap.set(cv2.CAP_PROP_FOCUS, 0)          # 0 = infinity, 255 = closest
+    # Note: most cheap webcams don't allow manual focus by software.
 
     print("Press SPACE to capture an image. Press ESC to exit.")
 
@@ -40,4 +48,3 @@ def test_camera():
 
 if __name__ == "__main__":
     test_camera()
-
