@@ -1,42 +1,20 @@
 import cv2
-import base64
 import time
-from openai import OpenAI
 import numpy as np
+import google.generativeai as genai
 
-# Initialize OpenAI client
-client = OpenAI(api_key="YOUR-OPENAI-API-KEY-HERE")  # <-- put your API key here
+# Configure Gemini API Key
+genai.configure(api_key="YOUR-GEMINI-API-KEY-HERE")  # <-- Replace with your Gemini API key
 
-# Capture image from webcam at high resolution
-def capture_image(filename="coin.jpg"):
-    cap = cv2.VideoCapture(0)  # Use 0 or 1 depending on your webcam
+# Use Gemini Flash 1.5
+model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
-    if not cap.isOpened():
-        raise Exception("Could not open webcam")
-
-    # Set high resolution (Full HD 1920x1080)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-
-    time.sleep(2)  # Let the camera warm up
-
-    ret, frame = cap.read()
-    if not ret:
-        raise Exception("Failed to capture image from webcam")
-
-    # Apply color enhancement: sharpening and contrast boost
-    enhanced_frame = preprocess_color_enhance(frame)
-
-    # Save the processed image
-    cv2.imwrite(filename, enhanced_frame)
-    cap.release()
-
-# Preprocess image for color enhancement: sharpening + contrast boost
+# Preprocess image (sharpening + contrast enhancement)
 def preprocess_color_enhance(image):
-    # Step 1: Apply slight Gaussian Blur to remove noise
+    # Blur to reduce noise
     blurred = cv2.GaussianBlur(image, (3, 3), 0)
 
-    # Step 2: Sharpen the image (without losing color)
+    # Sharpening kernel
     kernel = np.array([
         [0, -1, 0],
         [-1, 5, -1],
@@ -44,11 +22,11 @@ def preprocess_color_enhance(image):
     ])
     sharpened = cv2.filter2D(blurred, -1, kernel)
 
-    # Step 3: Increase contrast (for BGR)
+    # Enhance contrast (CLAHE on L-channel)
     lab = cv2.cvtColor(sharpened, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
 
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     cl = clahe.apply(l)
 
     merged = cv2.merge((cl, a, b))
@@ -56,54 +34,62 @@ def preprocess_color_enhance(image):
 
     return final
 
-# Encode image to base64
-def encode_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode("utf-8")
+# Capture and preprocess image
+def capture_and_save_image(filename="coin.jpg"):
+    cap = cv2.VideoCapture(0)
 
-# Analyze the captured coin image
-def analyze_coin():
-    image_path = "coin.jpg"
-    capture_image(image_path)
-    print(f"Image captured and saved to {image_path}")
+    if not cap.isOpened():
+        raise Exception("Could not open webcam")
 
-    base64_image = encode_image(image_path)
+    # Set high resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Request OpenAI with expert coin appraiser prompt
-    response = client.chat.completions.create(
-        model="gpt-4o",  # or "gpt-4-vision-preview" if you want
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": (
-                            "You are an expert coin appraiser and professional numismatist. "
-                            "You specialize in identifying coins by mint year, denomination "
-                            "Analyze the following image of a coin and tell me:\n"
-                            "- Likely year\n"
-                            "- Mint mark (if visible)\n"
-                            "- Denomination (e.g., cent, quarter, etc.)\n"
-                            "Be very detailed and specific. Only guess if absolutely necessary. "
-                            "Explain anything unclear about the coin or image."
-                        )
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    },
-                ]
-            }
-        ],
-        max_tokens=500,
+    time.sleep(2)  # Let camera warm up
+
+    ret, frame = cap.read()
+    cap.release()
+
+    if not ret:
+        raise Exception("Failed to capture image")
+
+    # Enhance and save
+    enhanced = preprocess_color_enhance(frame)
+    cv2.imwrite(filename, enhanced)
+    print(f"Image saved to {filename}")
+    return filename
+
+# Load image as bytes
+def load_image_bytes(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+# Analyze coin using Gemini
+def analyze_coin_with_gemini():
+    image_path = capture_and_save_image()
+
+    image_data = load_image_bytes(image_path)
+
+    prompt = (
+        "You are an expert coin appraiser and professional numismatist. "
+        "Identify the following from this coin image:\n"
+        "- Likely mint year\n"
+        "- Country of origin\n"
+        "- Denomination (e.g., cent, quarter, etc.)\n"
+        "- Mint mark (if visible)\n"
+        "- Estimated grade (Poor, Fine, XF, MS-65, etc.)\n"
+        "Be detailed and explain anything unclear."
     )
 
-    result = response.choices[0].message.content
-    print("\n--- Coin Analysis Result ---")
-    print(result)
+    response = model.generate_content(
+        [
+            prompt,
+            {"mime_type": "image/jpeg", "data": image_data}
+        ]
+    )
+
+    print("\n--- Gemini Coin Analysis Result ---")
+    print(response.text)
 
 if __name__ == "__main__":
-    analyze_coin()
+    analyze_coin_with_gemini()
