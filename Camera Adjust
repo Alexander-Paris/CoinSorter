@@ -1,38 +1,10 @@
 import cv2
-import numpy as np
 import time
 
-def preprocess_image(image):
-    # 1. Convert to Grayscale
+def preprocess_grayscale(image):
+    # Step 1: Convert to Grayscale only
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # 2. Apply Gaussian Blur to remove noise
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-
-    # 3. Sharpen the image
-    kernel = np.array([
-        [0, -1, 0],
-        [-1, 5, -1],
-        [0, -1, 0]
-    ])
-    sharpened = cv2.filter2D(blurred, -1, kernel)
-
-    # 4. Boost contrast (CLAHE)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    contrast = clahe.apply(sharpened)
-
-    # 5. Adaptive Thresholding
-    thresholded = cv2.adaptiveThreshold(
-        contrast, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        11, 2
-    )
-
-    # 6. Optional: Resize image bigger (helps with small text)
-    resized = cv2.resize(thresholded, None, fx=2.0, fy=2.0, interpolation=cv2.INTER_CUBIC)
-
-    return resized
+    return gray
 
 def test_camera():
     cap = cv2.VideoCapture(0)
@@ -40,11 +12,10 @@ def test_camera():
     if not cap.isOpened():
         raise Exception("Could not open webcam")
 
-    # Force high resolution
+    # Force higher resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Warm-up time
     time.sleep(2)
 
     print("Press SPACE to capture and preprocess an image. Press ESC to exit.")
@@ -61,28 +32,28 @@ def test_camera():
         except:
             pass
 
-        # Show live video (raw, not processed)
-        cv2.imshow("Camera Live View - Press SPACE to Capture", frame)
+        # Show live camera feed
+        cv2.imshow("Live View - Press SPACE to Capture", frame)
 
         key = cv2.waitKey(1) & 0xFF
 
-        if key == 27:  # ESC key
+        if key == 27:  # ESC
             print("Exiting...")
             break
-        elif key == 32:  # SPACE key
-            # Preprocess the current frame
-            processed_frame = preprocess_image(frame)
+        elif key == 32:  # SPACE
+            # Preprocess: Grayscale only
+            processed = preprocess_grayscale(frame)
 
-            # Save both raw and processed images
+            # Save raw and processed images
             timestamp = int(time.time())
             raw_filename = f"coin_raw_{timestamp}.jpg"
-            processed_filename = f"coin_processed_{timestamp}.jpg"
+            processed_filename = f"coin_grayscale_{timestamp}.jpg"
 
             cv2.imwrite(raw_filename, frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
-            cv2.imwrite(processed_filename, processed_frame)
+            cv2.imwrite(processed_filename, processed)
 
             print(f"Saved raw image: {raw_filename}")
-            print(f"Saved processed image: {processed_filename}")
+            print(f"Saved grayscale processed image: {processed_filename}")
 
     cap.release()
     cv2.destroyAllWindows()
